@@ -1,0 +1,23 @@
+Resources:
+
+  CoinGeckoDynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: coingecko-coin-prices
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: coin_id
+          AttributeType: N
+        - AttributeName: epoch
+          AttributeType: N
+      KeySchema:
+        - AttributeName: coin_id
+          KeyType: HASH
+        - AttributeName: epoch
+          KeyType: RANGE
+
+
+  ModelRegistryBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: coingecko-registry-${sls:stage}

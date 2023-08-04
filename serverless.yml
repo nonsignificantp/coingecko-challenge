@@ -1,0 +1,78 @@
+service: coingecko
+
+provider:
+  name: aws
+  region: us-east-1
+  runtime: python3.10
+  iam:
+    role:
+      name: coingecko-role
+      managedPolicies:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+  # Uncomment this line if using apple silicon.
+  # architecture: arm64
+
+package:
+  patterns:
+    - "!node_modules/**"
+    - "!notebooks/**"
+
+functions:
+  predict:
+    handler: app.handlers.predict
+    events:
+      - http:
+          path: model/predict
+          method: post
+          # authorizer:
+          #   type: COGNITO_USER_POOLS
+          #   authorizerId: <AUTHORIZER-ID>
+          #   scopes:
+          #     - <SCOPE>  
+
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
+
+  training:
+    handler: app.handlers.train
+    environment:
+      AWS_S3_BUCKET: !Ref ModelRegistryBucket
+    events:
+      - eventBridge:
+          schedule: rate(1 minute)
+          input:
+            window: 3600
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
+
+  prices:
+    handler: app.handlers.prices
+    environment:
+      AWS_DYNAMO_TABLE: !Ref CoinGeckoDynamoTable
+    events:
+      - eventBridge:
+          schedule: rate(1 minute)
+          input:
+            coins:
+              - bitcoin
+              - ethereum
+              - cardano
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
+
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    layer:
+      name: ${self:service}-layer-${sls:stage}
+      description: Python requirements for lambda function
+      compatibleRuntimes:
+        - python3.10
+
+
+resources:
+  - ${file(stack.yml)}
